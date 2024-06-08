@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap" rel="stylesheet">
+
+    <style>
+
+        :root {
+            --main-bg-color: #222831;
+            --side-bg-color: #31363F;
+            --main-fg-color: #EEEEEE;
+            --side-fg-color: #76ABAE;
+        }
+        
+        body {
+            display: flex;
+            justify-content: center;
+            font-family: "Roboto", sans-serif;
+            background-color: var(--main-bg-color);
+            color: var(--main-fg-color);
+        }
+
+        input {
+            outline: 0;
+            border-width: 0;
+            padding-block: 0px;
+            padding-inline: 0px;
+            color: var(--main-fg-color);
+        }
+
+        .workspace {
+            width: 400px;
+            padding: 5px;
+            display: grid;
+        }
+
+        .city_picker {
+            background-color: var(--side-bg-color);
+            width: 100%;
+            height: auto;
+            padding: 5px;
+            margin: 0;
+            margin-bottom: 25px;
+            border-radius: 5px;
+            display: grid;
+            box-sizing: border-box;
+        }
+
+        .city_picker_button {
+            background-color: var(--side-fg-color);
+            width: 50px;
+            height: 50px;
+            border-top-left-radius: 5px;
+            border-bottom-left-radius: 5px;
+            padding: 0;
+            margin: 0;
+            display: inline-block;
+            cursor: pointer;
+        }
+
+        .city_picker_button_icon {
+            transition: transform 1s;
+        }
+
+        .city_picker_button_icon:active { 
+            transform: scale(0.5, 0.5);
+        } 
+
+        .city_picker_city_input {
+            background-color: var(--main-bg-color);
+            height: 50px;
+            padding: 0;
+            margin-left: 5px;
+            padding-left: 5px;
+            font-size: 16px;
+            display: inline-block;
+            vertical-align: top;
+            flex-grow: 1;
+        }
+
+        .city_picker_date_input {
+            background-color: var(--main-bg-color);
+            height: 50px;
+            padding: 0 5px;
+            border-top-right-radius: 5px;
+            border-bottom-right-radius: 5px;
+            margin-left: 5px;
+            float: right;
+        }
+
+        .weather_view_day {
+            background-color: var(--side-bg-color);
+            border-radius: 5px;
+            padding: 10px;
+            overflow: hidden;
+            margin: 5px 0px;            
+        }
+
+        .weather_view_day_main_row {
+            height: 50px;
+            background-color: var(--side-bg-color);
+            text-align: center;
+            line-height: 50px;
+            font-size: 25px;
+            font-weight: bold;
+            display: flex;
+            cursor: pointer;
+        }
+
+        .weather_view_hour {
+            height: 50px;
+            background-color: var(--side-bg-color);
+            text-align: center;
+            line-height: 50px;
+            font-size: 25px;
+            font-weight: bold;
+            display: flex;
+        }
+
+        .weather_view_city {
+            margin-bottom: 15px;
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <div id = 'workspace' class = 'workspace'>
+        <div class = 'city_picker'>
+            <div style = 'height: 50px; display: flex;'>
+                <div class = 'city_picker_button' onclick='getWeather(document.getElementById("city_input").value, document.getElementById("date_input").value)'>
+                    <div class = 'city_picker_button_icon'>
+                        <svg xmlns="http://www.w3.org/2000/svg" height="50px" viewBox="0 -960 960 960" width="50px" fill="#e8eaed"><path d="M784-120 532-372q-30 24-69 38t-83 14q-109 0-184.5-75.5T120-580q0-109 75.5-184.5T380-840q109 0 184.5 75.5T640-580q0 44-14 83t-38 69l252 252-56 56ZM380-400q75 0 127.5-52.5T560-580q0-75-52.5-127.5T380-760q-75 0-127.5 52.5T200-580q0 75 52.5 127.5T380-400Z"/></svg>
+                    </div>
+                </div>
+                <input id = 'city_input' class = 'city_picker_city_input'/>
+                <input id = 'date_input' type = 'date' class = 'city_picker_date_input'/>
+        </div>
+    </div>
+
+    <script>
+
+        const ROOT = 'http://localhost:8080';
+
+        var conditions;
+        sendRequest('GET', ROOT + '/weather_conditions', {}, function (response) {
+            conditions = JSON.parse(response)
+            conditions = Object.fromEntries(Object.entries(conditions).map(([k, v]) => [v.code, v.icon]));
+        });
+
+        var cities = new Object();
+
+        document.getElementById('date_input').valueAsDate = new Date();
+
+        function sendRequest(type, url, params, callback) {
+            const xhr = new XMLHttpRequest();
+            url += (!params ? "" : "?" + new URLSearchParams(params));
+            xhr.open(type, url);
+            xhr.setRequestHeader('Access-Control-Allow-Origin', '*');
+
+            xhr.onload = function () { callback(xhr.response); };
+
+            xhr.onerror = function () {
+                // ...handle/report error...
+            };
+
+            xhr.send();
+        }
+
+        function getWeather(city, date) {
+            
+            function callback(data) {
+                
+                if (data.startsWith('Err')) {
+                    // TODO
+                    return;
+                }
+
+                if (data.length > 0) data = JSON.parse(data);
+
+                if (data.weather == null || data.weather.length <= 0) {
+                    sendRequest('GET', ROOT + '/download', {city : city, date: date}, function() {
+                        sendRequest('GET', ROOT + '/weather', {city : city, date: date}, callback);
+                    }); 
+                    return;
+                }
+
+                const workspace = document.getElementById('workspace');
+                const dayElement = document.createElement('div');
+                dayElement.classList.add('weather_view_day');
+
+                dayElementMainRow = document.createElement('div');
+                dayElementMainRow.classList.add('weather_view_day_main_row');
+
+                dayElement.appendChild(dayElementMainRow);
+
+                const hoursWrapper = document.createElement('div');
+                hoursWrapper.style.overflow = 'hidden';
+                hoursWrapper.style.maxHeight = 0;//'1000px';
+                hoursWrapper.style.transition = 'max-height 0.5s ease-out';
+                dayElement.appendChild(hoursWrapper);
+
+                city = data.city;
+                data = data.weather;
+
+                var avgDayTemp = 0;
+                var avgNightTemp = 0;
+                var cntDayTemp = 0;
+                var cntNightTemp = 0;
+                var icons = new Object();
+                for (var i = 0; i < data.length; i++) {
+
+                    const date = new Date(data[i].timestamp);
+                    const icon = conditions[data[i].condition];
+                    const temp = data[i].tempC;
+
+                    const hourElement = document.createElement('div');
+                    hourElement.classList.add('weather_view_hour');
+                    
+                    const hourElementIcon = document.createElement('img');
+                    if (date.getHours() >= 6 && date.getHours() <= 20) {
+                        avgDayTemp += temp;
+                        cntDayTemp++;
+                        hourElementIcon.src = 'weather_icons/day/' + icon + '.png';
+                    } else {
+                        avgNightTemp += temp;
+                        cntNightTemp++;
+                        hourElementIcon.src = 'weather_icons/night/' + icon + '.png';    
+                    }
+                    hourElement.appendChild(hourElementIcon);
+
+                    const hourElementTemp = document.createElement('div');
+                    hourElementTemp.innerHTML = Math.round(temp) + '&deg;C';
+                    hourElementTemp.style.flexGrow = 1;
+                    hourElementTemp.style.textAlign = 'left';
+                    hourElementTemp.style.paddingLeft = '10px';
+                    hourElement.appendChild(hourElementTemp);
+
+                    const hourElementDate = document.createElement('div');
+                    hourElementDate.innerText = date.toTimeString().substring(0,5);
+                    hourElement.appendChild(hourElementDate);
+
+                    if (icons[icon]) {
+                        icons[icon] += 1;
+                    } else {
+                        icons[icon] = 1;
+                    }
+
+                    hoursWrapper.appendChild(hourElement);
+
+                }
+
+                avgDayTemp /= cntDayTemp;
+                avgNightTemp /= cntNightTemp;
+                modusIcon = Object.entries(icons).reduce((a, b) => a[1] > b[1] ? a : b)[0];
+
+                const dayDate = new Date(data[0].timestamp);
+
+
+                
+                const mainRowIcon = document.createElement('img');
+                mainRowIcon.src = 'weather_icons/day/' + modusIcon + '.png';
+                dayElementMainRow.appendChild(mainRowIcon);
+
+                
+                const dayTemp = document.createElement('span');
+                dayTemp.innerHTML = Math.round(avgDayTemp) + '&deg;C';
+
+                const nightTemp = document.createElement('span');
+                nightTemp.innerHTML = Math.round(avgNightTemp) + '&deg;C';
+                //nightTemp.style.fontSize = '15px';
+                nightTemp.style.opacity = '50%';
+
+                const mainRowTemp = document.createElement('div');
+                mainRowTemp.appendChild(dayTemp);
+                mainRowTemp.appendChild(document.createTextNode(' '));
+                mainRowTemp.appendChild(nightTemp);
+                mainRowTemp.style.flexGrow = 1;
+                mainRowTemp.style.textAlign = 'left';
+                mainRowTemp.style.paddingLeft = '10px';
+                dayElementMainRow.appendChild(mainRowTemp);
+
+                const mainRowDate = document.createElement('div');
+                mainRowDate.innerText = dayDate.toDateString();
+                dayElementMainRow.appendChild(mainRowDate);
+
+                var opened = false;
+                dayElementMainRow.onclick = function () {
+                    
+                    if (opened) {
+                        hoursWrapper.style.maxHeight = '0';
+                    } else {
+                        hoursWrapper.style.maxHeight = hoursWrapper.scrollHeight + 'px';
+                    }
+
+                    opened = !opened;
+
+                }
+
+
+
+                if (!cities[city]) {
+                    
+                    const cityEl = document.createElement('div');
+                    cityEl.classList.add('weather_view_city');
+
+                    const cityElName = document.createElement('div');
+                    cityElName.style.textAlign = 'left';
+                    cityElName.style.paddingLeft = '10px';
+                    cityElName.style.fontSize = '25px';
+                    cityElName.innerHTML = city;
+                    
+                    cityEl.appendChild(cityElName);
+                    cityEl.appendChild(dayElement);
+
+                    workspace.appendChild(cityEl);
+                    cities[city] = new Object();
+                    cities[city].el = cityEl;
+                    cities[city].days = new Object();
+                    cities[city].days[dayDate] = dayElement;
+
+                } else {
+                    
+                    if (cities[city].days[dayDate]) {
+                        cities[city].days[dayDate].replaceWith(dayElement);
+                        cities[city].days[dayDate] = dayElement;
+                    } else {
+                        cities[city].days[dayDate] = dayElement;
+                        cities[city].el.appendChild(dayElement);
+                    }
+                    
+                }
+
+            }
+
+            sendRequest('GET', ROOT + '/weather', {city : city, date: date}, callback);    
+        
+        }
+    </script>
+
+</body>
+</html>
